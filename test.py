@@ -25,8 +25,8 @@ def init_connection():
              "https://www.googleapis.com/auth/spreadsheets",
              "https://www.googleapis.com/auth/drive",
              "https://www.googleapis.com/auth/drive.file"]
-    creds = st.secrets["gcp_service_account"]
-    # creds = ServiceAccountCredentials.from_json_keyfile_name("secrets.toml", scope)
+    # creds = st.secrets["gcp_service_account"]
+    creds = ServiceAccountCredentials.from_json_keyfile_name(".streamlit/secrets.toml", scope)
     client = gspread.authorize(creds)
     return client
 
