@@ -24,7 +24,7 @@ def init_connection():
              "https://www.googleapis.com/auth/drive",
              "https://www.googleapis.com/auth/drive.file"]
     
-    creds = ServiceAccountCredentials.from_json_keyfile_name("rising-amp-379110-8faa989b5b20.json", scope)
+    creds = ServiceAccountCredentials.from_json_keyfile_name("t.toml", scope)
     client = gspread.authorize(creds)
     return client
 
