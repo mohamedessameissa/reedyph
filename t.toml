@@ -1,0 +1,19 @@
+# .streamlit/secrets.toml
+[gcp_service_account]
+type = "service_account"
+project_id = "rising-amp-379110"
+private_key_id = "e794d0e0ad61b95bf88758d6c21d7a3bc96bf587"
+
+private_key = """-----BEGIN PRIVATE KEY-----
+MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDO4xG2ePJLYpTQ
+...
+-----END PRIVATE KEY-----
+"""
+
+client_email = "mohammedesam06-gmail-com-96@rising-amp-379110.iam.gserviceaccount.com"
+client_id = "118153265202546587418"
+auth_uri = "https://accounts.google.com/o/oauth2/auth"
+token_uri = "https://oauth2.googleapis.com/token"
+auth_provider_x509_cert_url = "https://www.googleapis.com/oauth2/v1/certs"
+client_x509_cert_url = "https://www.googleapis.com/robot/v1/metadata/x509/mohammedesam06-gmail-com-96%40rising-amp-379110.iam.gserviceaccount.com"
+universe_domain = "googleapis.com"
