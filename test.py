@@ -303,7 +303,7 @@ def page_search(accounts_ws, transactions_ws):
 def main():
     url = "logo.png"  # Replace with your actual image path
     image = Image.open(url)
-    st.image(image, use_column_width=False)
+    st.image(image, use_container_width=False)
 
     st.title("Elreedy Pharmacies System")
 
