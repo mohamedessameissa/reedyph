@@ -38,7 +38,6 @@ def init_connection():
     # creds = ServiceAccountCredentials.from_json_keyfile_name(".streamlit/secrets.toml", scope)
     # client = gspread.authorize(creds)
     # return client
-
 def get_worksheet(client, sheet_name, worksheet_name):
     """
     Returns a gspread Worksheet object given a client, sheet name, and worksheet name.
