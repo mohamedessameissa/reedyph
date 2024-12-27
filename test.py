@@ -25,16 +25,16 @@ def init_connection():
              "https://www.googleapis.com/auth/spreadsheets",
              "https://www.googleapis.com/auth/drive",
              "https://www.googleapis.com/auth/drive.file"]
-    # creds = st.secrets["private_key"]
     
     data = toml.load("secrets.toml")
-    
-    # 2) Convert that TOML dict into valid credentials for gspread
     creds = ServiceAccountCredentials.from_json_keyfile_dict(data, scope)
-    
-    # creds = ServiceAccountCredentials.from_json_keyfile_name(".streamlit/secrets.toml", scope)
     client = gspread.authorize(creds)
     return client
+
+    
+    # creds = ServiceAccountCredentials.from_json_keyfile_name(".streamlit/secrets.toml", scope)
+    # client = gspread.authorize(creds)
+    # return client
 
 def get_worksheet(client, sheet_name, worksheet_name):
     """
