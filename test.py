@@ -311,7 +311,7 @@ def main():
     # --------------------------------------------
     with st.sidebar:
         selected_page = option_menu(
-            menu_title=None,  # No "Navigation" title
+            menu_title="None",  # No "Navigation" title
             options=["Create Account", "Transaction Recorder", "Search Account"],
             icons=["person-plus", "cash-coin", "search"],  # Bootstrap icon names
             default_index=0,
