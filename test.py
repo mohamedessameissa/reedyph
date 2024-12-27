@@ -27,7 +27,7 @@ def init_connection():
              "https://www.googleapis.com/auth/drive.file"]
     # creds = st.secrets["private_key"]
     
-   data = toml.load("secrets.toml")  # <-- your TOML file name
+   data = toml.load("secrets.toml")
 
     # 2) Convert that TOML dict into valid credentials for gspread
     creds = ServiceAccountCredentials.from_json_keyfile_dict(data, scope)
