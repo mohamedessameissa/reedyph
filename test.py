@@ -11,6 +11,7 @@ from google.oauth2 import service_account
 import toml
 from datetime import datetime
 import pandas as pd
+from streamlit_option_menu import option_menu
 
 # ----------------------------------
 # 1) Google Sheets Helper Functions
