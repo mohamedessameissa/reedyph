@@ -11,6 +11,8 @@ from google.oauth2 import service_account
 import toml
 from datetime import datetime
 import pandas as pd
+from PIL import Image
+
 
 # For icon-based sidebar
 from streamlit_option_menu import option_menu
