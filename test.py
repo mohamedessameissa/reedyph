@@ -313,13 +313,13 @@ def main():
     # Sidebar with option_menu (icon-based)
     # --------------------------------------------
     with st.sidebar:
-        selected = option_menu(
-            menu_title=None,
+        selected_page = option_menu(
+            menu_title=None,  # No "Navigation" title
             options=["Create Account", "Transaction Recorder", "Search Account"],
-            icons=["person-plus", "cash-coin", "search"],
-            default_index=0
+            icons=["person-plus", "cash-coin", "search"],  # Bootstrap icon names
+            default_index=0,
+            orientation="vertical",
         )
-    st.write(f"You selected: {selected}")
 
     if selected_page == "Create Account":
         page_create_account(accounts_ws)
