@@ -25,7 +25,7 @@ def init_connection():
              "https://www.googleapis.com/auth/spreadsheets",
              "https://www.googleapis.com/auth/drive",
              "https://www.googleapis.com/auth/drive.file"]
-    date = st.secrets("private_key_id")
+    date = st.secrets("private_key")
     # data = toml.load("secrets.toml")
     creds = ServiceAccountCredentials.from_json_keyfile_dict(data, scope)
     client = gspread.authorize(creds)
