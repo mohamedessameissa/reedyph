@@ -25,7 +25,7 @@ def init_connection():
              "https://www.googleapis.com/auth/spreadsheets",
              "https://www.googleapis.com/auth/drive",
              "https://www.googleapis.com/auth/drive.file"]
-    creds = st.secrets["private_key_id"]
+    creds = st.secrets["private_key"]
     # creds = ServiceAccountCredentials.from_json_keyfile_name(".streamlit/secrets.toml", scope)
     client = gspread.authorize(creds)
     return client
