@@ -38,6 +38,7 @@ def init_connection():
     # creds = ServiceAccountCredentials.from_json_keyfile_name(".streamlit/secrets.toml", scope)
     # client = gspread.authorize(creds)
     # return client
+
 def get_worksheet(client, sheet_name, worksheet_name):
     """
     Returns a gspread Worksheet object given a client, sheet name, and worksheet name.
@@ -312,13 +313,13 @@ def main():
     # Sidebar with option_menu (icon-based)
     # --------------------------------------------
     with st.sidebar:
-        selected_page = option_menu(
-            menu_title=None,  # No "Navigation" title
+        selected = option_menu(
+            menu_title=None,
             options=["Create Account", "Transaction Recorder", "Search Account"],
-            icons=["person-plus", "cash-coin", "search"],  # Bootstrap icon names
-            default_index=0,
-            orientation="vertical",
+            icons=["person-plus", "cash-coin", "search"],
+            default_index=0
         )
+    st.write(f"You selected: {selected}")
 
     if selected_page == "Create Account":
         page_create_account(accounts_ws)
