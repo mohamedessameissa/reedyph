@@ -485,15 +485,23 @@ def page_edit_account(accounts_ws):
 def page_transaction(accounts_ws, transactions_ws, user_balances_ws):
     st.header("Transaction Recorder")
 
-    # 1) Ask for ID *outside* the form, so we can display the current balance immediately
-    user_id = st.text_input("ID Number", "")
+    # 1) Clear Search button
+    if st.button("Clear Search"):
+        # If "transaction_id" is in st.session_state, reset it
+        if "transaction_id" in st.session_state:
+            st.session_state["transaction_id"] = ""
+        # Force a rerun so the text field is immediately cleared
+        st.experimental_rerun()
 
-    # 2) If the user typed an ID, attempt to fetch & display the color-coded balance
+    # 2) ID Number input tied to session state key="transaction_id"
+    user_id = st.text_input("ID Number", "", key="transaction_id")
+
+    # 3) If the user has typed something, show their balance in red/green if found
     if user_id:
         row_num = find_account_by_id(accounts_ws, user_id)
         if row_num is not None:
             current_balance = get_user_balance(user_balances_ws, user_id)
-            # Display in red if negative, green if positive
+            # Display color-coded balance
             if current_balance < 0:
                 st.markdown(
                     f"<p style='color:red; font-weight:bold;'>"
@@ -509,39 +517,40 @@ def page_transaction(accounts_ws, transactions_ws, user_balances_ws):
         else:
             st.error("ID not found in 'accounts' (cannot show balance).")
 
-    # 3) The rest of the transaction fields & submission are inside a form
+    # 4) The transaction form
     with st.form("transaction_form"):
         transaction_type = st.selectbox("Transaction Type", ["ADD", "DEDUCT"])
         amount = st.number_input("Amount", min_value=0.0, max_value=5000.0, step=1.0)
         branch = st.selectbox("Branch", ["Nasser", "Suez", "Arbeen", "Farz"])
         agent_name = st.text_input("Agent Name", "")
 
+        # 5) Submit the transaction
         submitted = st.form_submit_button("Record Transaction")
-
         if submitted:
             # Basic validation
             if not user_id:
                 st.error("Please enter an ID first.")
                 return
+
             if agent_name.strip() == "":
                 st.error("Please provide the agent name.")
                 return
             
-            # 1) Find account row again, to ensure ID is valid
+            # 6) Find the account again
             row_num = find_account_by_id(accounts_ws, user_id)
             if row_num is None:
                 st.error("ID not found in 'accounts'. Please create an account first.")
                 return
 
-            # 2) Get account data & current balance
+            # 7) Get account data & current balance
             account_data = get_account_data(accounts_ws, row_num)
             current_balance = get_user_balance(user_balances_ws, user_id)
 
-            # 3) Check negative balance allowance
+            # 8) Check negative balance allowance
             can_neg_raw = account_data["CanHaveNegativeBalance"].strip().lower()
             can_negative = (can_neg_raw == "true")
 
-            # 4) Process the transaction
+            # 9) Perform the transaction
             if transaction_type == "ADD":
                 new_balance = current_balance + amount
                 record_transaction(transactions_ws, user_id, transaction_type, amount, branch, agent_name)
@@ -554,7 +563,7 @@ def page_transaction(accounts_ws, transactions_ws, user_balances_ws):
                 record_transaction(transactions_ws, user_id, transaction_type, amount, branch, agent_name)
                 st.success(f"Transaction recorded: -{amount} from ID {user_id}.")
 
-            # 5) Optionally show the new updated balance in color
+            # 10) Optionally show updated balance in red or green
             if new_balance < 0:
                 st.markdown(
                     f"<p style='color:red; font-weight:bold;'>"
