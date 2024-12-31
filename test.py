@@ -484,43 +484,68 @@ def page_edit_account(accounts_ws):
 
 def page_transaction(accounts_ws, transactions_ws, user_balances_ws):
     st.header("Transaction Recorder")
+
+    # 1) Ask for ID *outside* the form, so we can display the current balance immediately
+    user_id = st.text_input("ID Number", "")
+
+    # 2) If the user typed an ID, attempt to fetch & display the color-coded balance
+    if user_id:
+        row_num = find_account_by_id(accounts_ws, user_id)
+        if row_num is not None:
+            current_balance = get_user_balance(user_balances_ws, user_id)
+            # Display in red if negative, green if positive
+            if current_balance < 0:
+                st.markdown(
+                    f"<p style='color:red; font-weight:bold;'>"
+                    f"Current Balance: {current_balance:.2f} EGP</p>",
+                    unsafe_allow_html=True
+                )
+            else:
+                st.markdown(
+                    f"<p style='color:green; font-weight:bold;'>"
+                    f"Current Balance: {current_balance:.2f} EGP</p>",
+                    unsafe_allow_html=True
+                )
+        else:
+            st.error("ID not found in 'accounts' (cannot show balance).")
+
+    # 3) The rest of the transaction fields & submission are inside a form
     with st.form("transaction_form"):
-        user_id = st.text_input("ID Number", "")
         transaction_type = st.selectbox("Transaction Type", ["ADD", "DEDUCT"])
         amount = st.number_input("Amount", min_value=0.0, max_value=5000.0, step=1.0)
-        
         branch = st.selectbox("Branch", ["Nasser", "Suez", "Arbeen", "Farz"])
         agent_name = st.text_input("Agent Name", "")
 
         submitted = st.form_submit_button("Record Transaction")
 
         if submitted:
+            # Basic validation
+            if not user_id:
+                st.error("Please enter an ID first.")
+                return
             if agent_name.strip() == "":
                 st.error("Please provide the agent name.")
                 return
             
-            # 1) Find account row
+            # 1) Find account row again, to ensure ID is valid
             row_num = find_account_by_id(accounts_ws, user_id)
             if row_num is None:
                 st.error("ID not found in 'accounts'. Please create an account first.")
                 return
 
-            # 2) Get account data
+            # 2) Get account data & current balance
             account_data = get_account_data(accounts_ws, row_num)
-
-            # 3) Read current balance from 'user_balances'
             current_balance = get_user_balance(user_balances_ws, user_id)
 
-            # 4) Check negative balance allowance
+            # 3) Check negative balance allowance
             can_neg_raw = account_data["CanHaveNegativeBalance"].strip().lower()
             can_negative = (can_neg_raw == "true")
 
-            # 5) Calculate new balance
+            # 4) Process the transaction
             if transaction_type == "ADD":
                 new_balance = current_balance + amount
                 record_transaction(transactions_ws, user_id, transaction_type, amount, branch, agent_name)
                 st.success(f"Transaction recorded: +{amount} to ID {user_id}.")
-            
             else:  # "DEDUCT"
                 new_balance = current_balance - amount
                 if new_balance < 0 and not can_negative:
@@ -528,6 +553,20 @@ def page_transaction(accounts_ws, transactions_ws, user_balances_ws):
                     return
                 record_transaction(transactions_ws, user_id, transaction_type, amount, branch, agent_name)
                 st.success(f"Transaction recorded: -{amount} from ID {user_id}.")
+
+            # 5) Optionally show the new updated balance in color
+            if new_balance < 0:
+                st.markdown(
+                    f"<p style='color:red; font-weight:bold;'>"
+                    f"Updated Balance: {new_balance:.2f} EGP</p>",
+                    unsafe_allow_html=True
+                )
+            else:
+                st.markdown(
+                    f"<p style='color:green; font-weight:bold;'>"
+                    f"Updated Balance: {new_balance:.2f} EGP</p>",
+                    unsafe_allow_html=True
+                )
 
 def page_search(accounts_ws, transactions_ws, user_balances_ws):
     st.header("Search Account")
