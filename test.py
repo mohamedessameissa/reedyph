@@ -485,23 +485,14 @@ def page_edit_account(accounts_ws):
 def page_transaction(accounts_ws, transactions_ws, user_balances_ws):
     st.header("Transaction Recorder")
 
-    # 1) Clear Search button
-    if st.button("Clear Search"):
-        # If "transaction_id" is in st.session_state, reset it
-        if "transaction_id" in st.session_state:
-            st.session_state["transaction_id"] = ""
-        # Force a rerun so the text field is immediately cleared
-        st.experimental_rerun()
-
-    # 2) ID Number input tied to session state key="transaction_id"
+    # 1) The text_input for the ID, stored in session_state so we remember if user typed it
     user_id = st.text_input("ID Number", "", key="transaction_id")
 
-    # 3) If the user has typed something, show their balance in red/green if found
+    # 2) If the user has typed an ID, show its current balance in red/green if found
     if user_id:
         row_num = find_account_by_id(accounts_ws, user_id)
         if row_num is not None:
             current_balance = get_user_balance(user_balances_ws, user_id)
-            # Display color-coded balance
             if current_balance < 0:
                 st.markdown(
                     f"<p style='color:red; font-weight:bold;'>"
@@ -517,14 +508,13 @@ def page_transaction(accounts_ws, transactions_ws, user_balances_ws):
         else:
             st.error("ID not found in 'accounts' (cannot show balance).")
 
-    # 4) The transaction form
+    # 3) The transaction form
     with st.form("transaction_form"):
         transaction_type = st.selectbox("Transaction Type", ["ADD", "DEDUCT"])
         amount = st.number_input("Amount", min_value=0.0, max_value=5000.0, step=1.0)
         branch = st.selectbox("Branch", ["Nasser", "Suez", "Arbeen", "Farz"])
         agent_name = st.text_input("Agent Name", "")
 
-        # 5) Submit the transaction
         submitted = st.form_submit_button("Record Transaction")
         if submitted:
             # Basic validation
@@ -535,22 +525,22 @@ def page_transaction(accounts_ws, transactions_ws, user_balances_ws):
             if agent_name.strip() == "":
                 st.error("Please provide the agent name.")
                 return
-            
-            # 6) Find the account again
+
+            # 4) Find the account
             row_num = find_account_by_id(accounts_ws, user_id)
             if row_num is None:
                 st.error("ID not found in 'accounts'. Please create an account first.")
                 return
 
-            # 7) Get account data & current balance
+            # 5) Get account data & current balance
             account_data = get_account_data(accounts_ws, row_num)
             current_balance = get_user_balance(user_balances_ws, user_id)
 
-            # 8) Check negative balance allowance
+            # 6) Check negative balance allowance
             can_neg_raw = account_data["CanHaveNegativeBalance"].strip().lower()
             can_negative = (can_neg_raw == "true")
 
-            # 9) Perform the transaction
+            # 7) Perform the transaction
             if transaction_type == "ADD":
                 new_balance = current_balance + amount
                 record_transaction(transactions_ws, user_id, transaction_type, amount, branch, agent_name)
@@ -563,7 +553,7 @@ def page_transaction(accounts_ws, transactions_ws, user_balances_ws):
                 record_transaction(transactions_ws, user_id, transaction_type, amount, branch, agent_name)
                 st.success(f"Transaction recorded: -{amount} from ID {user_id}.")
 
-            # 10) Optionally show updated balance in red or green
+            # 8) Show the updated balance in red or green
             if new_balance < 0:
                 st.markdown(
                     f"<p style='color:red; font-weight:bold;'>"
@@ -577,6 +567,10 @@ def page_transaction(accounts_ws, transactions_ws, user_balances_ws):
                     unsafe_allow_html=True
                 )
 
+            # 9) **Automatically clear** the ID and force a rerun
+            st.session_state["transaction_id"] = ""
+            st.rerun()
+            
 def page_search(accounts_ws, transactions_ws, user_balances_ws):
     st.header("Search Account")
     user_id = st.text_input("Enter ID Number to Search", "").strip()
