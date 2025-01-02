@@ -1087,7 +1087,7 @@ import pandas as pd
 from PIL import Image
 from streamlit_option_menu import option_menu
 import time
-from gspread.exceptions import APIError, WorksheetNotFound, CellNotFound
+from gspread.exceptions import APIError
 
 # ----------------------------------
 # 1) Google Sheets Helper Functions
