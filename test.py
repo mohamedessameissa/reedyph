@@ -14,6 +14,9 @@ import pandas as pd
 from PIL import Image
 # For icon-based sidebar
 from streamlit_option_menu import option_menu
+import time
+from datetime import datetime, date, timedelta
+
 
 # ----------------------------------
 # 1) Google Sheets Helper Functions
@@ -248,20 +251,49 @@ def get_user_info(users_ws, username):
 # 1.b) User Balances Helper
 # ----------------------------------
 
+# def get_user_balance(user_balances_ws, user_id):
+#     """
+#     Reads the user's current balance from the 'user_balances' worksheet.
+#     Expects two columns: A: id, B: balance
+#     Returns the balance as a float or 0.0 if not found.
+#     """
+#     all_rows = user_balances_ws.get_all_values()  # each row is [id, balance], including header
+#     for row in all_rows[1:]:  # skip header if your first row is headers
+#         if len(row) >= 2:
+#             if str(row[0]) == str(user_id):
+#                 try:
+#                     return float(row[1])
+#                 except ValueError:
+#                     return 0.0
+#     return 0.0
+
 def get_user_balance(user_balances_ws, user_id):
     """
     Reads the user's current balance from the 'user_balances' worksheet.
-    Expects two columns: A: id, B: balance
-    Returns the balance as a float or 0.0 if not found.
+    This version uses get_all_records() and expects columns named 'id' and 'balance' (case-insensitive).
+    Returns the balance as a float or 0.0 if not found or not parseable.
     """
-    all_rows = user_balances_ws.get_all_values()  # each row is [id, balance], including header
-    for row in all_rows[1:]:  # skip header if your first row is headers
-        if len(row) >= 2:
-            if str(row[0]) == str(user_id):
-                try:
-                    return float(row[1])
-                except ValueError:
-                    return 0.0
+    # 1) get_all_records() returns a list of dicts, 
+    #    automatically using the first row as keys: 
+    #    e.g. [{"id": "123", "balance": "-5111"}, {...}, ...]
+    records = user_balances_ws.get_all_records()
+
+    for rec in records:
+        # Make the key names case-insensitive by lowercasing:
+        # But if your sheet columns are literally named "id" and "balance" (all lowercase),
+        # then you can just do rec["id"] and rec["balance"] directly.
+        # If there are capitalization differences, do something like:
+        #    user_id_col = rec.get("ID") or rec.get("id")
+        #    balance_col = rec.get("Balance") or rec.get("balance")
+        
+        # For simplicity, let's assume exact "id" and "balance" in the sheet:
+        if str(rec["id"]) == str(user_id):
+            try:
+                return float(rec["balance"])
+            except ValueError:
+                return 0.0
+
+    # Not found => 0.0
     return 0.0
 
 # ----------------------------------
@@ -482,33 +514,89 @@ def page_edit_account(accounts_ws):
                 except Exception as e:
                     st.error(f"Error while updating account: {e}")
 
+# def page_transaction(accounts_ws, transactions_ws, user_balances_ws):
+#     st.header("Transaction Recorder")
+#     with st.form("transaction_form"):
+#         user_id = st.text_input("ID Number", "")
+#         transaction_type = st.selectbox("Transaction Type", ["ADD", "DEDUCT"])
+#         amount = st.number_input("Amount", min_value=0.0, max_value=5000.0, step=1.0)
+        
+#         branch = st.selectbox("Branch", ["Nasser", "Suez", "Arbeen", "Farz"])
+#         agent_name = st.text_input("Agent Name", "")
+
+#         submitted = st.form_submit_button("Record Transaction")
+
+#         if submitted:
+#             if agent_name.strip() == "":
+#                 st.error("Please provide the agent name.")
+#                 return
+            
+#             # 1) Find account row
+#             row_num = find_account_by_id(accounts_ws, user_id)
+#             if row_num is None:
+#                 st.error("ID not found in 'accounts'. Please create an account first.")
+#                 return
+
+#             # 2) Get account data
+#             account_data = get_account_data(accounts_ws, row_num)
+
+#             # 3) Read current balance from 'user_balances'
+#             current_balance = get_user_balance(user_balances_ws, user_id)
+
+#             # 4) Check negative balance allowance
+#             can_neg_raw = account_data["CanHaveNegativeBalance"].strip().lower()
+#             can_negative = (can_neg_raw == "true")
+
+#             # 5) Calculate new balance
+#             if transaction_type == "ADD":
+#                 new_balance = current_balance + amount
+#                 record_transaction(transactions_ws, user_id, transaction_type, amount, branch, agent_name)
+#                 st.success(f"Transaction recorded: +{amount} to ID {user_id}.")
+            
+#             else:  # "DEDUCT"
+#                 new_balance = current_balance - amount
+#                 if new_balance < 0 and not can_negative:
+#                     st.error("This account does not allow a negative balance. Transaction rejected.")
+#                     return
+#                 record_transaction(transactions_ws, user_id, transaction_type, amount, branch, agent_name)
+#                 st.success(f"Transaction recorded: -{amount} from ID {user_id}.")
+
+
 def page_transaction(accounts_ws, transactions_ws, user_balances_ws):
     st.header("Transaction Recorder")
 
-    # 1) The text_input for the ID, stored in session_state so we remember if user typed it
-    user_id = st.text_input("ID Number", "", key="transaction_id")
+    # 1) Retrieve whatever is in session_state, or default to ""
+    typed_id = st.session_state.get("current_user_id", "")
 
-    # 2) If the user has typed an ID, show its current balance in red/green if found
+    # 2) Show the text_input. No key is given.
+    user_id = st.text_input("ID Number", value=typed_id)
+
+    # 3) Update session_state with what the user typed
+    st.session_state["current_user_id"] = user_id
+
+    # 4) Show current balance if we have an ID
     if user_id:
-        row_num = find_account_by_id(accounts_ws, user_id)
-        if row_num is not None:
-            current_balance = get_user_balance(user_balances_ws, user_id)
-            if current_balance < 0:
-                st.markdown(
-                    f"<p style='color:red; font-weight:bold;'>"
-                    f"Current Balance: {current_balance:.2f} EGP</p>",
-                    unsafe_allow_html=True
-                )
-            else:
-                st.markdown(
-                    f"<p style='color:green; font-weight:bold;'>"
-                    f"Current Balance: {current_balance:.2f} EGP</p>",
-                    unsafe_allow_html=True
-                )
+        current_balance = get_user_balance(user_balances_ws, user_id)
+        if current_balance < 0:
+            st.markdown(
+                f"<p style='color:red; font-weight:bold;'>"
+                f"Current Balance: {current_balance:.2f} EGP</p>",
+                unsafe_allow_html=True
+            )
         else:
-            st.error("ID not found in 'accounts' (cannot show balance).")
+            st.markdown(
+                f"<p style='color:green; font-weight:bold;'>"
+                f"Current Balance: {current_balance:.2f} EGP</p>",
+                unsafe_allow_html=True
+            )
+    
+    # st.session_state["current_user_id"] = ""
+    # st.session_state["transaction_type"] = " "
+    # st.session_state["amount"] = 0.0
+    # st.session_state["branch"] = " "
+    # st.session_state["agent_name"] = " "
 
-    # 3) The transaction form
+    # 5) The transaction form
     with st.form("transaction_form"):
         transaction_type = st.selectbox("Transaction Type", ["ADD", "DEDUCT"])
         amount = st.number_input("Amount", min_value=0.0, max_value=5000.0, step=1.0)
@@ -517,30 +605,30 @@ def page_transaction(accounts_ws, transactions_ws, user_balances_ws):
 
         submitted = st.form_submit_button("Record Transaction")
         if submitted:
-            # Basic validation
+            # Validation
             if not user_id:
                 st.error("Please enter an ID first.")
                 return
 
-            if agent_name.strip() == "":
+            if not agent_name.strip():
                 st.error("Please provide the agent name.")
                 return
 
-            # 4) Find the account
+            # Find account
             row_num = find_account_by_id(accounts_ws, user_id)
             if row_num is None:
                 st.error("ID not found in 'accounts'. Please create an account first.")
                 return
 
-            # 5) Get account data & current balance
+            # Current balance
             account_data = get_account_data(accounts_ws, row_num)
             current_balance = get_user_balance(user_balances_ws, user_id)
 
-            # 6) Check negative balance allowance
+            # Negative balance check
             can_neg_raw = account_data["CanHaveNegativeBalance"].strip().lower()
             can_negative = (can_neg_raw == "true")
 
-            # 7) Perform the transaction
+            # Perform transaction
             if transaction_type == "ADD":
                 new_balance = current_balance + amount
                 record_transaction(transactions_ws, user_id, transaction_type, amount, branch, agent_name)
@@ -553,7 +641,7 @@ def page_transaction(accounts_ws, transactions_ws, user_balances_ws):
                 record_transaction(transactions_ws, user_id, transaction_type, amount, branch, agent_name)
                 st.success(f"Transaction recorded: -{amount} from ID {user_id}.")
 
-            # 8) Show the updated balance in red or green
+            # Show updated balance
             if new_balance < 0:
                 st.markdown(
                     f"<p style='color:red; font-weight:bold;'>"
@@ -567,10 +655,14 @@ def page_transaction(accounts_ws, transactions_ws, user_balances_ws):
                     unsafe_allow_html=True
                 )
 
-            # 9) **Automatically clear** the ID and force a rerun
-            st.session_state["transaction_id"] = ""
-            st.rerun()
+            # Clear the user ID from session state so it doesn’t show old balance next time
+            st.session_state["current_user_id"] = ""
             
+            st.info("Refreshing in 5 seconds...")
+            time.sleep(5)
+
+            st.rerun()
+
 def page_search(accounts_ws, transactions_ws, user_balances_ws):
     st.header("Search Account")
     user_id = st.text_input("Enter ID Number to Search", "").strip()
@@ -661,6 +753,179 @@ def page_search(accounts_ws, transactions_ws, user_balances_ws):
             df_transactions['Date & Time'] = df_transactions['Date & Time'].dt.strftime('%Y-%m-%d %H:%M:%S')
 
             st.table(df_transactions)
+
+def page_audit_dashboard(accounts_ws, transactions_ws, user_balances_ws):
+    """
+    Provides filters for Transaction and User data, then displays
+    the filtered results in separate sections.
+    """
+    st.title("Audit Dashboard")
+
+    # --- Fetch raw data from Google Sheets
+    df_accounts = pd.DataFrame(accounts_ws.get_all_records())
+    df_transactions = pd.DataFrame(transactions_ws.get_all_records())
+    df_balances = pd.DataFrame(user_balances_ws.get_all_records())
+
+    # Make sure columns exist
+    # For accounts, we assume columns: ['ID','Name','Company','CreatorAgent','Timestamp','CanHaveNegativeBalance','PhoneNumber','RegisteredBy','Branch']
+    # For transactions: ['Timestamp','ID','TransactionType','Amount','Branch','AgentName']
+    # For balances:     ['id','balance'] (per your code)
+
+    # Convert date columns to datetime for easier filtering
+    if not df_accounts.empty and 'Timestamp' in df_accounts.columns:
+        df_accounts['Timestamp'] = pd.to_datetime(df_accounts['Timestamp'], errors='coerce')
+    if not df_transactions.empty and 'Timestamp' in df_transactions.columns:
+        df_transactions['Timestamp'] = pd.to_datetime(df_transactions['Timestamp'], errors='coerce')
+
+    # ----------------------------
+    # 1) TRANSACTION FILTERS
+    # ----------------------------
+    st.subheader("Filter: Transactions")
+
+    # A) Start Date & End Date for Transactions
+    #    Default: last 30 days
+    today = datetime.date.today()
+    default_start = today - datetime.timedelta(days=30)
+
+    col1, col2 = st.columns(2)
+    with col1:
+        start_date_t = st.date_input("Transaction Start Date", value=default_start)
+    with col2:
+        end_date_t = st.date_input("Transaction End Date", value=today)
+
+    # B) Branch filter (with "All" option)
+    branch_options = sorted(df_transactions['Branch'].unique()) if 'Branch' in df_transactions.columns else []
+    branch_options = ["All"] + branch_options
+    selected_branch_t = st.selectbox("Transaction Branch", branch_options, index=0)
+
+    # C) Company filter (with "All" option)
+    #    Note: Transactions themselves don't store company, but we can join on the "ID"
+    #    to get the user’s company from df_accounts.
+    company_options = sorted(df_accounts['Company'].unique()) if 'Company' in df_accounts.columns else []
+    company_options = ["All"] + company_options
+    selected_company_t = st.selectbox("Transaction Company", company_options, index=0)
+
+    # ----------------------------
+    # 2) APPLY TRANSACTION FILTERS
+    # ----------------------------
+    df_transactions_filtered = df_transactions.copy()
+
+    # Filter by date
+    if not df_transactions_filtered.empty and 'Timestamp' in df_transactions_filtered.columns:
+        df_transactions_filtered = df_transactions_filtered[
+            (df_transactions_filtered['Timestamp'] >= pd.to_datetime(start_date_t)) &
+            (df_transactions_filtered['Timestamp'] <= pd.to_datetime(end_date_t) + pd.Timedelta(days=1))
+        ]
+
+    # Filter by branch
+    if selected_branch_t != "All" and 'Branch' in df_transactions_filtered.columns:
+        df_transactions_filtered = df_transactions_filtered[df_transactions_filtered['Branch'] == selected_branch_t]
+
+    # Filter by company => join df_transactions with df_accounts on ID to get Company
+    if selected_company_t != "All":
+        if not df_accounts.empty and 'ID' in df_accounts.columns and 'Company' in df_accounts.columns:
+            # We can do a merge to bring "Company" into the transactions
+            merged_t = df_transactions_filtered.merge(df_accounts[['ID','Company']], 
+                                                      left_on='ID', 
+                                                      right_on='ID', 
+                                                      how='left')
+            # Now filter by the selected company
+            merged_t = merged_t[merged_t['Company'] == selected_company_t]
+            df_transactions_filtered = merged_t
+        else:
+            # If data is missing, then no transactions match
+            df_transactions_filtered = df_transactions_filtered.iloc[0:0]
+
+    # Show the filtered transactions
+    st.write("### Filtered Transactions")
+    if df_transactions_filtered.empty:
+        st.info("No transaction records match the selected filters.")
+    else:
+        # Sort descending by date
+        df_transactions_filtered = df_transactions_filtered.sort_values(by='Timestamp', ascending=False)
+        df_transactions_filtered.reset_index(drop=True, inplace=True)
+        st.dataframe(df_transactions_filtered)
+
+    st.markdown("---")
+
+    # ----------------------------
+    # 3) USER/ACCOUNTS FILTERS
+    # ----------------------------
+    st.subheader("Filter: Users / Accounts")
+
+    # A) Registration Start/End Date
+    #    Also default to last 30 days
+    col3, col4 = st.columns(2)
+    with col3:
+        start_date_u = st.date_input("Registration Start Date", value=default_start)
+    with col4:
+        end_date_u = st.date_input("Registration End Date", value=today)
+
+    # B) User Company (with "All" option)
+    company_options_u = sorted(df_accounts['Company'].unique()) if 'Company' in df_accounts.columns else []
+    company_options_u = ["All"] + company_options_u
+    selected_company_u = st.selectbox("User Company", company_options_u, index=0)
+
+    # C) User Branch (with "All" option)
+    branch_options_u = sorted(df_accounts['Branch'].unique()) if 'Branch' in df_accounts.columns else []
+    branch_options_u = ["All"] + branch_options_u
+    selected_branch_u = st.selectbox("User Branch", branch_options_u, index=0)
+
+    # D) User Balance Tag
+    #    "no_balance" (== 0), "positive_balance" (> 0), "negative_balance" (< 0), or "All"
+    balance_tags = ["All", "no_balance", "positive_balance", "negative_balance"]
+    selected_balance_tag = st.selectbox("User Balance Tag", balance_tags, index=0)
+
+    # ----------------------------
+    # 4) APPLY USER/ACCOUNTS FILTERS
+    # ----------------------------
+    df_accounts_filtered = df_accounts.copy()
+
+    # Filter by registration timestamp
+    if not df_accounts_filtered.empty and 'Timestamp' in df_accounts_filtered.columns:
+        df_accounts_filtered = df_accounts_filtered[
+            (df_accounts_filtered['Timestamp'] >= pd.to_datetime(start_date_u)) &
+            (df_accounts_filtered['Timestamp'] <= pd.to_datetime(end_date_u) + pd.Timedelta(days=1))
+        ]
+
+    # Filter by company
+    if selected_company_u != "All":
+        df_accounts_filtered = df_accounts_filtered[df_accounts_filtered['Company'] == selected_company_u]
+
+    # Filter by branch
+    if selected_branch_u != "All":
+        df_accounts_filtered = df_accounts_filtered[df_accounts_filtered['Branch'] == selected_branch_u]
+
+    # Convert df_balances for easy lookups:  key => user_id, value => balance
+    balances_dict = {}
+    if not df_balances.empty:
+        for idx, row in df_balances.iterrows():
+            # row['id'], row['balance']
+            balances_dict[str(row.get('id', ''))] = row.get('balance', 0.0)
+
+    # Compute each user’s balance from balances_dict
+    df_accounts_filtered['CurrentBalance'] = df_accounts_filtered['ID'].astype(str).apply(
+        lambda user_id: float(balances_dict.get(user_id, 0.0))
+    )
+
+    # Filter by balance tag
+    if selected_balance_tag != "All":
+        if selected_balance_tag == "no_balance":
+            df_accounts_filtered = df_accounts_filtered[df_accounts_filtered['CurrentBalance'] == 0]
+        elif selected_balance_tag == "positive_balance":
+            df_accounts_filtered = df_accounts_filtered[df_accounts_filtered['CurrentBalance'] > 0]
+        elif selected_balance_tag == "negative_balance":
+            df_accounts_filtered = df_accounts_filtered[df_accounts_filtered['CurrentBalance'] < 0]
+
+    # Show the filtered accounts
+    st.write("### Filtered Users / Accounts")
+    if df_accounts_filtered.empty:
+        st.info("No user accounts match the selected filters.")
+    else:
+        # Sort by registration timestamp descending
+        df_accounts_filtered = df_accounts_filtered.sort_values(by='Timestamp', ascending=False)
+        df_accounts_filtered.reset_index(drop=True, inplace=True)
+        st.dataframe(df_accounts_filtered)
 
 # ----------------------------------
 # 2.a) Modified Login to also get edit_access
@@ -774,13 +1039,15 @@ def main():
                 "Create Account", 
                 "Transaction Recorder", 
                 "Search Account", 
-                "Edit Account"  # New option
+                "Edit Account",
+                "Audit Dashboard"
             ],
             icons=[
                 "person-plus", 
                 "cash-coin", 
                 "search", 
-                "pencil-square"  
+                "pencil-square",
+                "bar-chart-line-fill"
             ],  
             default_index=0,
             orientation="vertical",
@@ -799,6 +1066,8 @@ def main():
         page_search(accounts_ws, transactions_ws, user_balances_ws)
     elif selected_page == "Edit Account":
         page_edit_account(accounts_ws)
+    elif selected_page == "Audit Dashboard":
+        page_audit_dashboard(accounts_ws, transactions_ws, user_balances_ws)
 
 if __name__ == "__main__":
     main()
