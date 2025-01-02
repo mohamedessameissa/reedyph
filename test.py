@@ -1075,17 +1075,12 @@
 
 
 
-
-
-
-
-
 #!/usr/bin/env python
 # coding: utf-8
 
 import streamlit as st
 import gspread
-from oauth2client.service_account import ServiceAccountCredentials
+from google.oauth2.service_account import Credentials
 import toml
 from datetime import datetime, date, timedelta
 import pandas as pd
@@ -1113,7 +1108,7 @@ def init_connection():
     ]
     try:
         data = toml.load("secrets.toml")
-        creds = ServiceAccountCredentials.from_json_keyfile_dict(data, scope)
+        creds = Credentials.from_service_account_info(data, scopes=scope)
         client = gspread.authorize(creds)
         return client
     except Exception as e:
@@ -1765,7 +1760,7 @@ def page_search(accounts_ws, transactions_ws, user_balances_ws):
                     return ''
             return ''
 
-        df_info_styled = df_info.style.map(lambda x: highlight_balance(x) if x.name == 'Value' else '', subset=['Value'])
+        df_info_styled = df_info.style.applymap(lambda x: highlight_balance(x), subset=['Value'])
         st.write(df_info_styled.to_html(), unsafe_allow_html=True)
 
         # --- 4) Fetch and display transaction history
@@ -1984,7 +1979,7 @@ def page_audit_dashboard(accounts_ws, transactions_ws, user_balances_ws):
             except:
                 return ''
 
-        styled_df = df_display.style.map(lambda x: highlight_balance(x), subset=['CurrentBalance'])
+        styled_df = df_display.style.applymap(highlight_balance, subset=['CurrentBalance'])
         st.write(styled_df.to_html(), unsafe_allow_html=True)
 
 # ----------------------------------
